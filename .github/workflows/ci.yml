@@ -77,7 +77,7 @@ jobs:
 
       - name: Check Rust Stable (no_std-chain-error)
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable check --verbose --no-default-features --features chain-error
 
   check-rust-stable-no_derive:
@@ -99,7 +99,7 @@ jobs:
 
       - name: check-rust-stable-no_derive
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable check --verbose --features bit-vec,bytes,generic-array
 
   check-rust-stable-only_mel:
@@ -121,7 +121,7 @@ jobs:
 
       - name: check-rust-stable-only_mel
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable check --verbose --features max-encoded-len
 
 # Test
@@ -144,7 +144,7 @@ jobs:
 
       - name: Test Rust Stable
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --all --features bit-vec,bytes,generic-array,derive,max-encoded-len
 
 
@@ -167,7 +167,7 @@ jobs:
 
       - name: Test Rust Stable (no_derive)
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --no-default-features --features bit-vec,bytes,generic-array
 
 
@@ -190,7 +190,7 @@ jobs:
 
       - name: Test Rust Stable (only_mel)
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --features max-encoded-len
 
   test-rust-stable-only_mel-no_default_std:
@@ -212,7 +212,7 @@ jobs:
 
       - name: Test Rust Stable (only_mel-no_default_std)
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable test --verbose --no-default-features --features max-encoded-len
 
 
@@ -235,7 +235,7 @@ jobs:
 
       - name: Bench Rust Nightly
         run: |
-          export RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +nightly bench --features bit-vec,bytes,generic-array,derive,max-encoded-len
 
   miri:
@@ -258,7 +258,7 @@ jobs:
       - name: Run Miri
         run: |
           RUST_BACKTRACE = 1
-          RUSTFLAGS = '-Cdebug-assertions=y -Dwarnings'
+          RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           MIRIFLAGS = "-Zmiri-disable-isolation"
           time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
 
