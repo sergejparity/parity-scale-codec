@@ -5,27 +5,35 @@ on:
     branches:
       - master
   pull_request:
-    branches:
-      - '*'
-  workflow_dispatch:
 
-  # schedule:
-  #   - cron: '0 0 * * *'
+env:
+  IMAGE: paritytech/ci-unified:bullseye-1.73.0
 
 jobs:
-# Check
-  check-clippy:
+  set-image:
+    # GitHub Actions does not allow using 'env' in a container context.
+    # This workaround sets the container image for each job using 'set-image' job output.
     runs-on: ubuntu-latest
+    outputs:
+      IMAGE: ${{ steps.set_image.outputs.IMAGE }}
+    steps:
+      - id: set_image
+        run: echo "IMAGE=${{ env.IMAGE }}" >> $GITHUB_OUTPUT
+
+# Checks
+  clippy:
+    runs-on: ubuntu-latest
+    needs: [set-image]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code/.
         uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          components: clippy
-          profile: minimal
+      - name: Show Rust version
+        run: |
+          cargo -vV
+          rustc -vV
+          rustup show
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -40,15 +48,17 @@ jobs:
 
   checks:
     runs-on: ubuntu-latest
+    needs: [set-image]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
+      - name: Show Rust version
+        run: |
+          cargo -vV
+          rustc -vV
+          rustup show
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -73,18 +83,20 @@ jobs:
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           time cargo +stable check --verbose --features max-encoded-len
 
-# Test
+# Tests
   tests:
     runs-on: ubuntu-latest
+    needs: [set-image]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
 
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
+      - name: Show Rust version
+        run: |
+          cargo -vV
+          rustc -vV
+          rustup show
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -99,7 +111,7 @@ jobs:
       - name: Test Rust Stable (no_derive)
         run: |
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +stable test --verbose --no-default-features --features bit-vec,bytes,generic-array
+          time cargo +stable test --verbose --features bit-vec,bytes,generic-array
 
       - name: Test Rust Stable (only_mel)
         run: |
@@ -109,20 +121,19 @@ jobs:
       - name: Test Rust Stable (only_mel-no_default_std)
         run: |
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +stable test --verbose --no-default-features --features max-encoded-len
+          time cargo +stable test --verbose --features max-encoded-len,std --no-default-features
 
-
+# Benches
   bench-rust-nightly:
     runs-on: ubuntu-latest
+    needs: [set-image]
+    strategy:
+      matrix:
+        feature: [bit-vec,bytes,generic-array,derive,max-encoded-len]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          profile: minimal
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -132,20 +143,18 @@ jobs:
       - name: Bench Rust Nightly
         run: |
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
-          time cargo +nightly bench --features bit-vec,bytes,generic-array,derive,max-encoded-len
+          time cargo +nightly bench --features ${{ matrix.feature }}
 
   miri:
     runs-on: ubuntu-latest
+    needs: [set-image]
+    strategy:
+      matrix:
+        feature: [bit-vec,bytes,generic-array,arbitrary]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: nightly
-          components: miri
-          profile: minimal
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -157,22 +166,17 @@ jobs:
           export RUST_BACKTRACE=1
           export RUSTFLAGS='-Cdebug-assertions=y -Dwarnings'
           export MIRIFLAGS='-Zmiri-disable-isolation'
-          time cargo +nightly miri test --features bit-vec,bytes,generic-array,arbitrary --release
+          time cargo +nightly miri test --features ${{ matrix.feature }} --release
 
 # Build
 
   build-linux-ubuntu-amd64:
     runs-on: ubuntu-latest
-    needs: [checks, tests]
+    needs: [set-image, clippy, checks, tests]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -184,16 +188,11 @@ jobs:
 
   publish-dry-run:
     runs-on: ubuntu-latest
-    needs: [build-linux-ubuntu-amd64]
+    needs: [set-image, build-linux-ubuntu-amd64]
+    container: ${{ needs.set-image.outputs.IMAGE }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Set up Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-          profile: minimal
 
       - name: Cache Rust dependencies
         uses: swatinem/rust-cache@v2
@@ -205,24 +204,19 @@ jobs:
         run: cargo publish -p parity-scale-codec --dry-run
 
 
-  # publish-crate:
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Checkout code
-  #       uses: actions/checkout@v4
+  publish-crate:
+    runs-on: ubuntu-latest
+    needs: [set-image, publish-dry-run]
+    container: ${{ needs.set-image.outputs.IMAGE }}
+    if: startsWith(github.ref, 'refs/tags/v')
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-  #     - name: Set up Rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         profile: minimal
+      - name: Cache Rust dependencies
+        uses: swatinem/rust-cache@v2
+        with:
+          key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
 
-  #     - name: Cache Rust dependencies
-  #       uses: swatinem/rust-cache@v2
-  #       with:
-  #         key: ${{ runner.os }}-rust-${{ hashFiles('**/Cargo.lock') }}
-
-  #     - name: Publish Crate
-  #       if: startsWith(github.ref, 'refs/tags/v')
-  #       run: cargo publish -p parity-scale-codec
-
-
+      # - name: Publish Crate
+      #   run: cargo publish -p parity-scale-codec
